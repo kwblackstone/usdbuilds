@@ -24,24 +24,32 @@ jobs:
         id: check_artifact
         shell: pwsh
         run: |
-          $usdVersion = "${{ github.event.inputs.usdVersion }}"
-          $usdFormattedVersion = "$($usdVersion.Substring(0,2)).$($usdVersion.Substring(2))"
-          "USD_FORMATTED_VERSION = $usdFormattedVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
-          $ASSET_NAME = "usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
-          try {
-            gh release view USDArtifact --repo ${{ github.repository }}
-          } catch {
-            Write-Output "'USDArtifact' release not found. Assuming artifact does not exist."
+          $usdVersion="${{ github.event.inputs.usdVersion }}"
+          $usdFormattedVersion="$($usdVersion.Substring(0,2)).$($usdVersion.Substring(2))"
+          "USD_FORMATTED_VERSION=$usdFormattedVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $releaseName="USD-${{ github.event.inputs.usdVersion }}-Artifacts"
+          $ASSET_NAME="usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+          $releaseExists = $false
+          $stderr = $null
+          $releaseView = gh release view $releaseName 2>&1 | Tee-Object -Variable stderr
+          if ($stderr -match "release not found") {
+            $releaseExists = $false
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
-            exit 0
-          }
-          $assets = gh release view USD-"${{ github.event.inputs.usdVersion }}-Artifacts --repo ${{ github.repository }} --json assets -q '.assets[].name'
-          if ($assets -like "*$ASSET_NAME*") {
-            Write-Output "Asset $ASSET_NAME exists in the USD-"${{ github.event.inputs.usdVersion }}-Artifacts Release."
-            "exists=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+            Write-Output "Release not found: $releaseName  -- Creating new one"
+            gh release create $releaseName --notes "USD shared libraries were built --openimageio --usd-imaging --draco (win and mac) --use-cxx11-abi=0 (linux)"
           } else {
-            Write-Output "Asset $ASSET_NAME does not exist in the USD-"${{ github.event.inputs.usdVersion }}-Artifacts Release."
-            "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+            $releaseExists = $true
+          }
+          Write-Output "Release View result: $releaseName, Exists: $releaseExists"
+          if ($releaseExists) {
+            $assets = gh release view $releaseName --repo ${{ github.repository }} --json assets -q '.assets[].name'
+            if ($assets -like "*$ASSET_NAME*") {
+              Write-Output "Asset $ASSET_NAME exists in the $releaseName Release."
+              "exists=true" | Out-File -FilePath $env:GITHUB_ENV -Append
+            } else {
+              Write-Output "Asset $ASSET_NAME does not exist in the $releaseName Release."
+              "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
+            }
           }
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -52,7 +60,7 @@ jobs:
         with:
           python-version: '3.10'
         id: setup-python
-
+  
       - name: Install Ninja (Cross-platform)
         if: env.exists == 'false'
         run: |
@@ -62,7 +70,7 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_13.1.app
-          brew install glew openexr3 imath
+          brew install glew openexr opencolorio imath
 
       - name: Install Additional Dependencies (Ubuntu)
         if: env.exists == 'false' && matrix.os == 'ubuntu-latest'
@@ -88,7 +96,33 @@ jobs:
       - name: Build USD with Ninja
         if: env.exists == 'false'
         run: |
-          python OpenUSD/build_scripts/build_usd.py ${{ github.workspace }}/usd_build --openimageio --build-variant release --generator "Ninja" --build-target universal
+          build_usd_args=(
+            "--build-shared"
+            "--tools"
+            '--generator "Ninja"'
+            "--python"
+            "--debug-python"
+            "--openimageio"
+            "--usd-imaging"
+          )
+
+          if [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
+            build_usd_args+=("--draco")
+          fi
+
+          build_usd_args+=("--build-variant" "release")
+
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            build_usd_args+=("--use-cxx11-abi" "0")
+          fi
+
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            # Perform the Windows-specific hack
+            sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
+          fi
+
+          # Execute the build command
+          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build " "${build_usd_args[@]}"
 
       - name: Package Build Artifacts Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
@@ -104,7 +138,7 @@ jobs:
         if: env.exists == 'false'
         shell: pwsh
         run: |
-          $ARTIFACT_PATH = "${{ github.workspace }}/usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+          $ARTIFACT_PATH="${{ github.workspace }}/usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
           if (-Not (Test-Path $ARTIFACT_PATH)) {
             Write-Output "$ARTIFACT_PATH does not exist."
           }
