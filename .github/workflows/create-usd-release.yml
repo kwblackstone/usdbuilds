@@ -30,9 +30,16 @@ jobs:
           $releaseName="USD-${{ github.event.inputs.usdVersion }}-Artifacts"
           $ASSET_NAME="usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
           $releaseExists = $false
-          $releaseView = gh release view $releaseName
-          Write-Output "Relase View ret: $releaseName"
-
+          $stderr = $null
+          $releaseView = gh release view $releaseName 2>&1 | Tee-Object -Variable stderr
+          if ($stderr -match "release not found") {
+            $releaseExists = $false
+            Write-Output "Release not found: $releaseName  -- Creating new one"
+            gh release create $releaseName --notes 
+          } else {
+            $releaseExists = $true
+          }
+          Write-Output "Release View result: $releaseName, Exists: $releaseExists"
           if ($releaseExists) {
             $assets = gh release view $releaseName --repo ${{ github.repository }} --json assets -q '.assets[].name'
             if ($assets -like "*$ASSET_NAME*") {
@@ -43,5 +50,78 @@ jobs:
               "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             }
           }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        if: env.exists == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+        id: setup-python
+  
+      - name: Install Ninja (Cross-platform)
+        if: env.exists == 'false'
+        run: |
+          python -m pip install ninja
+
+      - name: Install Additional Dependencies (macOS)
+        if: env.exists == 'false' && matrix.os == 'macos-latest'
+        run: |
+          sudo xcode-select -s /Applications/Xcode_13.1.app
+          brew install glew openexr3 imath
+
+      - name: Install Additional Dependencies (Ubuntu)
+        if: env.exists == 'false' && matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libgl1-mesa-dev libglew-dev libxi-dev libxrandr-dev
+
+      - name: Install Additional Dependencies (Windows)
+        if: env.exists == 'false' && matrix.os == 'windows-latest'
+        run: |
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+
+      - name: Clone USD
+        if: env.exists == 'false'
+        run: git clone --branch v${{ env.USD_FORMATTED_VERSION }} --depth 1 https://github.com/PixarAnimationStudios/OpenUSD.git
+
+      - name: Install Python Dependencies
+        if: env.exists == 'false'
+        run: |
+          python -m pip install PySide6
+          python -m pip install pyopengl
+
+      - name: Build USD with Ninja
+        if: env.exists == 'false'
+        run: |
+          python OpenUSD/build_scripts/build_usd.py ${{ github.workspace }}/usd_build --openimageio --build-variant release --generator "Ninja" --build-target universal
+
+      - name: Package Build Artifacts Unix
+        if: env.exists == 'false' && matrix.os != 'windows-latest'
+        run: |
+          zip -r usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip ${{ github.workspace }}/usd_build
+
+      - name: Package Build Artifacts Windows
+        if: env.exists == 'false' && matrix.os == 'windows-latest'
+        run: |
+          powershell -Command "Compress-Archive -Path ${{ github.workspace }}\usd_build\* -DestinationPath usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+
+      - name: Upload Artifact to USD-${{ github.event.inputs.usdVersion }}-Artifacts Release
+        if: env.exists == 'false'
+        shell: pwsh
+        run: |
+          $ARTIFACT_PATH="${{ github.workspace }}/usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+          if (-Not (Test-Path $ARTIFACT_PATH)) {
+            Write-Output "$ARTIFACT_PATH does not exist."
+          }
+          else {
+            Write-Output "File $ARTIFACT_PATH exists."
+            Write-Output "Size of the artifact file:"
+            Get-Item $ARTIFACT_PATH | Select-Object Name, Length
+          }
+          Write-Output "Uploading $ARTIFACT_PATH to USD-${{github.event.inputs.usdVersion}}-Artifacts release..."
+          gh release upload USD-${{ github.event.inputs.usdVersion }}-Artifacts $ARTIFACT_PATH --repo ${{ github.repository }} --clobber
+          Write-Output "Upload successful."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
