@@ -35,7 +35,7 @@ jobs:
           if ($stderr -match "release not found") {
             $releaseExists = $false
             Write-Output "Release not found: $releaseName  -- Creating new one"
-            gh release create $releaseName --notes 
+            gh release create $releaseName --notes "USD shared libraries were built --openimageio --usd-imaging --draco (win and mac) --use-cxx11-abi=0 (linux)"
           } else {
             $releaseExists = $true
           }
