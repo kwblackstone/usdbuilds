@@ -24,9 +24,9 @@ jobs:
         id: check_artifact
         shell: pwsh
         run: |
-          $usdVersion = "${{ github.event.inputs.usdVersion }}"
-          $usdFormattedVersion = "$($usdVersion.Substring(0,2)).$($usdVersion.Substring(2))"
-          "USD_FORMATTED_VERSION = $usdFormattedVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+          $usdVersion="${{ github.event.inputs.usdVersion }}"
+          $usdFormattedVersion="$($usdVersion.Substring(0,2)).$($usdVersion.Substring(2))"
+          "USD_FORMATTED_VERSION=$usdFormattedVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
           $ASSET_NAME = "usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
           try {
             gh release view USDArtifact --repo ${{ github.repository }}
@@ -35,12 +35,13 @@ jobs:
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             exit 0
           }
-          $assets = gh release view USD-"${{ github.event.inputs.usdVersion }}-Artifacts --repo ${{ github.repository }} --json assets -q '.assets[].name'
+          $releaseName="USD-${{ github.event.inputs.usdVersion }}-Artifacts"
+          $assets = gh release view $releaseName --repo ${{ github.repository }} --json assets -q '.assets[].name'
           if ($assets -like "*$ASSET_NAME*") {
-            Write-Output "Asset $ASSET_NAME exists in the USD-"${{ github.event.inputs.usdVersion }}-Artifacts Release."
+            Write-Output "Asset $ASSET_NAME exists in the $releaseName Release."
             "exists=true" | Out-File -FilePath $env:GITHUB_ENV -Append
           } else {
-            Write-Output "Asset $ASSET_NAME does not exist in the USD-"${{ github.event.inputs.usdVersion }}-Artifacts Release."
+            Write-Output "Asset $ASSET_NAME does not exist in the $releaseName Release."
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
           }
         env:
@@ -104,7 +105,7 @@ jobs:
         if: env.exists == 'false'
         shell: pwsh
         run: |
-          $ARTIFACT_PATH = "${{ github.workspace }}/usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+          $ARTIFACT_PATH="${{ github.workspace }}/usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
           if (-Not (Test-Path $ARTIFACT_PATH)) {
             Write-Output "$ARTIFACT_PATH does not exist."
           }
