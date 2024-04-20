@@ -33,7 +33,7 @@ jobs:
           } catch {
             Write-Output "'USDArtifact' release not found. Assuming artifact does not exist."
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
-            exit 0
+            return
           }
           $releaseName="USD-${{ github.event.inputs.usdVersion }}-Artifacts"
           $assets = gh release view $releaseName --repo ${{ github.repository }} --json assets -q '.assets[].name'
