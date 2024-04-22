@@ -123,7 +123,6 @@ jobs:
           --generator Ninja \
           --python \
           --debug-python \
-          --openimageio \
           --usd-imaging \
           $draco_arg $abi_arg
 
