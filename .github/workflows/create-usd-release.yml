@@ -75,9 +75,9 @@ jobs:
       - name: Install openexr2
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
-          curl -L https://github.com/AcademySoftwareFoundation/openexr/archive/refs/tags/v2.5.2.tar.gz -o openexr.tar.gz
+          curl -L https://github.com/AcademySoftwareFoundation/openexr/archive/refs/tags/v2.4.3.tar.gz -o openexr.tar.gz
           tar -xzvf openexr.tar.gz
-          cd openexr-2.5.2
+          cd openexr-2.4.3
           cmake . -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=ON
           make -j$(sysctl -n hw.logicalcpu)
           sudo make install
@@ -117,7 +117,7 @@ jobs:
             # Perform the Windows-specific hack
             sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
           fi
-          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" --build-shared --tools --generator Ninja --python --debug-python --openimageio --usd-imaging $draco_arg $abi_arg 
+          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" --build-args OpenEXR,"-DCMAKE_PREFIX_PATH=/usr/local" --build-shared --tools --generator Ninja --python --debug-python --openimageio --usd-imaging $draco_arg $abi_arg 
         
       - name: Package Build Artifacts Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
