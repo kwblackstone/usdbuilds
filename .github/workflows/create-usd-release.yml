@@ -70,15 +70,17 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_13.1.app
-          brew install pkg-config glew openexr opencolorio imath
+          brew install pkg-config glew opencolorio imath
 
-      - name: Install ilmbase with modification
+      - name: Install openexr2
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
-          brew tap-new local/override
-          brew extract --version=2.5.8 ilmbase local/override
-          sed -i '' '/disable! date:/d' $(brew --prefix)/Homebrew/Library/Taps/local/homebrew-override/Formula/ilmbase.rb
-          brew install local/override/ilmbase
+          curl -L https://github.com/AcademySoftwareFoundation/openexr/archive/refs/tags/v2.5.8.tar.gz -o openexr.tar.gz
+          tar -xzvf openexr.tar.gz
+          cd openexr-2.5.8
+          cmake . -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=ON
+          make -j$(sysctl -n hw.logicalcpu)
+          sudo make install
 
       - name: Install Additional Dependencies (Ubuntu)
         if: env.exists == 'false' && matrix.os == 'ubuntu-latest'
