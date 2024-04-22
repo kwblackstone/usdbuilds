@@ -70,7 +70,7 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_13.1.app
-          brew install glew openexr opencolorio imath
+          brew install glew imath
 
       - name: Install Additional Dependencies (Ubuntu)
         if: env.exists == 'false' && matrix.os == 'ubuntu-latest'
@@ -96,15 +96,12 @@ jobs:
       - name: Build USD with Ninja
         if: env.exists == 'false'
         run: |
-          if [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
-            draco_arg="--draco"
-          else
-            draco_arg=""
-          fi
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
             abi_arg="--use-cxx11-abi 0"
+            draco_arg=""
           else
             abi_arg=""
+            draco_arg="--draco"
           fi
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             # Perform the Windows-specific hack
