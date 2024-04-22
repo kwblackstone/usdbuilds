@@ -117,7 +117,18 @@ jobs:
             # Perform the Windows-specific hack
             sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
           fi
-          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" --build-args OpenEXR,"-DCMAKE_PREFIX_PATH=/usr/local" --build-shared --tools --generator Ninja --python --debug-python --openimageio --usd-imaging $draco_arg $abi_arg 
+          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" \
+          --build-args OpenEXR,"-DCMAKE_PREFIX_PATH=/usr/local" \
+          --build-args OpenImageIO,"-DOPENEXR_ROOT=/usr/local" \
+          --build-shared \
+          --tools \
+          --generator Ninja \
+          --python \
+          --debug-python \
+          --openimageio \
+          --usd-imaging \
+          $draco_arg $abi_arg
+
         
       - name: Package Build Artifacts Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
