@@ -73,6 +73,7 @@ jobs:
           brew install pkg-config glew openexr opencolorio imath
 
       - name: Install ilmbase with modification
+        if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           brew tap-new local/override
           brew extract --version=2.5.8 ilmbase local/override
