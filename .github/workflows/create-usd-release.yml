@@ -70,8 +70,8 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_14.1.app
-          brew install pkg-config glew opencolorio imath
-
+          brew install giflib glew opencolorio imath
+          # pkg-config
       # - name: Install openexr2
       #  if: env.exists == 'false' && matrix.os == 'macos-latest'
       #  run: |
