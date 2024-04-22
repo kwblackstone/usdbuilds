@@ -126,16 +126,37 @@ jobs:
           --usd-imaging \
           $draco_arg $abi_arg
 
-        
+      - name: Remove Specific Folders Unix
+        if: env.exists == 'false' && matrix.os != 'windows-latest'
+        run: |
+          rm -rf ${{ github.workspace }}/usd_build/build
+          rm -rf ${{ github.workspace }}/usd_build/resources
+          rm -rf ${{ github.workspace }}/usd_build/share
+          rm -rf ${{ github.workspace }}/usd_build/src
+
+      - name: Remove Specific Folders Windows
+        if: env.exists == 'false' && matrix.os == 'windows-latest'
+        run: |
+          powershell -Command "& {
+            Remove-Item -Path ${{ github.workspace }}\usd_build\build -Recurse -Force
+            Remove-Item -Path ${{ github.workspace }}\usd_build\resources -Recurse -Force
+            Remove-Item -Path ${{ github.workspace }}\usd_build\share -Recurse -Force
+            Remove-Item -Path ${{ github.workspace }}\usd_build\src -Recurse -Force
+          }"
+
       - name: Package Build Artifacts Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
         run: |
-          zip -r usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip ${{ github.workspace }}/usd_build
+          cd ${{ github.workspace }}/usd_build
+          zip -r ../usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip *
 
       - name: Package Build Artifacts Windows
         if: env.exists == 'false' && matrix.os == 'windows-latest'
         run: |
-          powershell -Command "Compress-Archive -Path ${{ github.workspace }}\usd_build\* -DestinationPath usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip"
+          powershell -Command "& {
+            Set-Location ${{ github.workspace }}\usd_build
+            Compress-Archive -Path * -DestinationPath ..\usd-${{ github.event.inputs.usdVersion }}-${{ matrix.os }}.zip
+          }"
 
       - name: Upload Artifact to USD-${{ github.event.inputs.usdVersion }}-Artifacts Release
         if: env.exists == 'false'
