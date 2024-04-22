@@ -96,34 +96,22 @@ jobs:
       - name: Build USD with Ninja
         if: env.exists == 'false'
         run: |
-          build_usd_args=(
-            "--build-shared"
-            "--tools"
-            '--generator "Ninja"'
-            "--python"
-            "--debug-python"
-            "--openimageio"
-            "--usd-imaging"
-          )
-
           if [ "${{ matrix.os }}" != "ubuntu-latest" ]; then
-            build_usd_args+=("--draco")
+            draco_arg="--draco"
+          else
+            draco_arg=""
           fi
-
-          build_usd_args+=("--build-variant" "release")
-
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            build_usd_args+=("--use-cxx11-abi" "0")
+            abi_arg="--use-cxx11-abi 0"
+          else
+            abi_arg=""
           fi
-
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
             # Perform the Windows-specific hack
             sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
           fi
-
-          # Execute the build command
-          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build " "${build_usd_args[@]}"
-
+          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" --build-shared --tools --generator Ninja --python --debug-python --openimageio --usd-imaging $draco_arg $abi_arg 
+        
       - name: Package Build Artifacts Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
         run: |
