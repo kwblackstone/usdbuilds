@@ -8,7 +8,7 @@ on:
       usdVersion:
         description: 'USD Version to build (e.g., 2308, 2403)'
         required: true
-        default: '2403'
+        default: '2308'
 
 jobs:
   build:
@@ -36,7 +36,7 @@ jobs:
             $releaseExists = $false
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             Write-Output "Release not found: $releaseName  -- Creating new one"
-            gh release create $releaseName --notes "USD shared libraries were built --openimageio --usd-imaging --draco (win and mac) --use-cxx11-abi=0 (linux)"
+            gh release create $releaseName --notes "USD shared libraries were built --usd-imaging --draco (win and mac) --use-cxx11-abi=0 (linux)"
           } else {
             $releaseExists = $true
           }
@@ -70,7 +70,7 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_14.1.app
-          brew install giflib glew opencolorio imath
+          brew install glew opencolorio imath
           # pkg-config
       # - name: Install openexr2
       #  if: env.exists == 'false' && matrix.os == 'macos-latest'
