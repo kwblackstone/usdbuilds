@@ -118,7 +118,7 @@ jobs:
             sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
           fi
           python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" \
-          --build-args OpenEXR,"-DCMAKE_PREFIX_PATH=/usr/local" \
+          --build-args OpenEXR,"-DCMAKE_PREFIX_PATH=/usr/local;-DIlmBase_ROOT=/usr/local;-DCMAKE_VERBOSE_MAKEFILE=ON"" \
           --build-args OpenImageIO,"-DOPENEXR_ROOT=/usr/local" \
           --build-shared \
           --tools \
