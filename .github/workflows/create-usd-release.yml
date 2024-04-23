@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -36,7 +36,7 @@ jobs:
             $releaseExists = $false
             "exists=false" | Out-File -FilePath $env:GITHUB_ENV -Append
             Write-Output "Release not found: $releaseName  -- Creating new one"
-            gh release create $releaseName --notes "USD shared libraries were built --usd-imaging --draco (win and mac) --use-cxx11-abi=0 (linux)"
+            gh release create $releaseName --notes "USD shared libraries were built --usd-imaging --use-cxx11-abi=0 (linux)"
           } else {
             $releaseExists = $true
           }
@@ -70,7 +70,9 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'macos-latest'
         run: |
           sudo xcode-select -s /Applications/Xcode_14.1.app
-          brew install glew opencolorio imath
+          brew uninstall --ignore-dependencies openexr imath
+          brew cleanup
+          brew install glew
 
       - name: Install Additional Dependencies (Ubuntu)
         if: env.exists == 'false' && matrix.os == 'ubuntu-latest'
@@ -93,39 +95,34 @@ jobs:
           python -m pip install PySide6
           python -m pip install pyopengl
 
-      - name: Build USD with Ninja
+      - name: Build USD
         if: env.exists == 'false'
+        shell: pwsh
         run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            abi_arg="--use-cxx11-abi 0"
-            draco_arg=""
-          else
-            abi_arg=""
-            draco_arg="--draco"
-          fi
-          if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            # Perform the Windows-specific hack
-            sed -i 's/ -A x64//' OpenUSD/build_scripts/build_usd.py
-
-            # on Windows we can build USD with openimage io, mac and ubuntu are expected to install it themselves
-            oiio="--openimageio"
-          else
-            oiio=""
-          fi
-          python OpenUSD/build_scripts/build_usd.py "${{ github.workspace }}/usd_build" \
-          --build-shared \
-          --tools \
-          --generator Ninja \
-          --python \
-          --debug-python \
-          --usd-imaging \
-          $draco_arg $abi_arg $oiio
+          $file = "OpenUSD/build_scripts/build_usd.py"
+          $env:CMAKE_PREFIX_PATH = "/usr/local;$env:CMAKE_PREFIX_PATH"
+          $env:DYLD_LIBRARY_PATH = "/usr/local/lib;$env:DYLD_LIBRARY_PATH"
+          $env:LD_LIBRARY_PATH = "/usr/local/lib;$env:LD_LIBRARY_PATH"
+          $abi_arg = ""
+          $file_offset_bits = ""
+          $generator = "--generator Ninja"
+          $materialx = "--materialx"
+          if ("${{runner.os}}" -eq "Windows") {
+            $file_offset_bits = '--build-args "-D_FILE_OFFSET_BITS=64"'
+            $materialx = "--no-materialx"
+            # Modify the Python build script to remove multiprocess flags
+            (Get-Content $file) -replace ' -- \{multiproc\}', '' | Set-Content $file
+          }
+          if ("${{runner.os}}" -eq "Linux") {
+            $abi_arg = "--use-cxx11-abi 0"
+          }
+          $python_cmd = "python $file `${{ github.workspace }}/usd_build` --build-shared --openimageio --tools --python --debug-python --usd-imaging --build-variant release $abi_arg $generator $materialx $($file_offset_bits)"
+          Invoke-Expression $python_cmd
 
       - name: Remove Specific Folders Unix
         if: env.exists == 'false' && matrix.os != 'windows-latest'
         run: |
           rm -rf ${{ github.workspace }}/usd_build/build
-          rm -rf ${{ github.workspace }}/usd_build/resources
           rm -rf ${{ github.workspace }}/usd_build/share
           rm -rf ${{ github.workspace }}/usd_build/src
 
@@ -134,7 +131,6 @@ jobs:
         run: |
           powershell -Command "& {
             Remove-Item -Path ${{ github.workspace }}\usd_build\build -Recurse -Force
-            Remove-Item -Path ${{ github.workspace }}\usd_build\resources -Recurse -Force
             Remove-Item -Path ${{ github.workspace }}\usd_build\share -Recurse -Force
             Remove-Item -Path ${{ github.workspace }}\usd_build\src -Recurse -Force
           }"
