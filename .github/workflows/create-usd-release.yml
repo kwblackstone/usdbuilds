@@ -19,7 +19,7 @@ jobs:
         os: [windows-latest]
     steps:
       - uses: actions/checkout@v4
-
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Check if artifact exists in 'USD-${{ github.event.inputs.usdVersion }}-Artifacts' Release
         id: check_artifact
         shell: pwsh
@@ -84,6 +84,7 @@ jobs:
         if: env.exists == 'false' && matrix.os == 'windows-latest'
         run: |
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System'
+          choco install llvm
 
       - name: Clone USD
         if: env.exists == 'false'
@@ -104,19 +105,18 @@ jobs:
           $env:DYLD_LIBRARY_PATH = "/usr/local/lib;$env:DYLD_LIBRARY_PATH"
           $env:LD_LIBRARY_PATH = "/usr/local/lib;$env:LD_LIBRARY_PATH"
           $abi_arg = ""
-          $file_offset_bits = ""
           $generator = "--generator Ninja"
           $materialx = "--materialx"
           if ("${{runner.os}}" -eq "Windows") {
-            $file_offset_bits = '--build-args "-D_FILE_OFFSET_BITS=64"'
             $materialx = "--no-materialx"
-            # Modify the Python build script to remove multiprocess flags
-            (Get-Content $file) -replace ' -- \{multiproc\}', '' | Set-Content $file
+            $fileContent = Get-Content $file -Raw
+            $fileContent = $fileContent -replace ' -- \{multiproc\}', ''
+            Set-Content $file -Value $fileContent
           }
           if ("${{runner.os}}" -eq "Linux") {
             $abi_arg = "--use-cxx11-abi 0"
           }
-          $python_cmd = "python $file `${{ github.workspace }}/usd_build` --build-shared --openimageio --tools --python --debug-python --usd-imaging --build-variant release $abi_arg $generator $materialx $($file_offset_bits)"
+          $python_cmd = "python $file `${{ github.workspace }}/usd_build` --build-shared --openimageio --tools --python --debug-python --usd-imaging --build-variant release $abi_arg $generator $materialx"
           Invoke-Expression $python_cmd
 
       - name: Remove Specific Folders Unix
